@@ -1,0 +1,207 @@
+# Game Data Chat - Windsurf AI Rules
+
+You are an expert TypeScript/Next.js developer working on a game data analytics chat application.
+
+## Core Rules
+
+1. **NEVER duplicate schema definitions** - All tool schemas are defined ONCE in `src/lib/mcp-tools.ts` and auto-converted to Zod
+2. **ALWAYS provide friendly error messages** - Use emoji indicators (❌, 💡, 📝) in console, user-friendly messages in UI
+3. **FOLLOW single source of truth** - `mcp-tools.ts` is the source, both Gemini and MCP server consume from it
+4. **USE proper TypeScript** - Strict typing, avoid `any` except in error handlers
+5. **HANDLE hydration** - Client-only rendering for timestamps and locale-specific data
+6. **MINIMAL comments** - Only add comments to describe out of the ordinary logic or situations
+
+## Tech Stack
+
+- Next.js 15 (App Router, Turbopack)
+- TypeScript (strict mode)
+- Gemini 2.0 Flash Experimental (function calling)
+- MCP SDK (@modelcontextprotocol/sdk with McpServer API)
+- Tailwind CSS
+- Zod validation
+- RAWG API
+
+## Critical Architecture
+
+### Schema Flow (NEVER DUPLICATE)
+```
+mcp-tools.ts (JSON Schema)
+    ↓ convertToZodSchema()
+    ↓
+fetchGameDataZodSchema (Zod)
+    ↓
+Used by mcp-server.ts
+```
+
+### Folder Responsibilities
+- `src/app` - Contains the main Next.js layouts and pages for the chat application
+- `src/app/api` - Contains the API routes to support the chat application
+- `src/lib` - Contains the core logic for the chat application, including the Gemini and MCP integration
+- `src/lib/mcp` - Contains the MCP server and tool definitions
+- `src/components` - Contains the UI components for the chat application
+
+
+## When Adding/Modifying Tools
+
+1. **Edit ONLY `src/lib/mcp/tool-toolName.ts`**:
+2. **Register in Gemini** (`src/lib/gemini.ts`):
+3. **Register in MCP** (`src/lib/mcp-server.ts`):
+
+
+## Error Handling Pattern
+
+### In `src/lib/gemini.ts`:
+```typescript
+catch (error: any) {
+  const errorMessage = error?.message || String(error);
+
+  if (errorMessage.includes('quota')) {
+    console.error('❌ Gemini API Quota Exceeded');
+    console.error('💡 You have exceeded your Gemini API quota.');
+    console.error('📝 Solutions:');
+    console.error('   1. Wait a few minutes and try again');
+    console.error('   2. Check your quota at: https://aistudio.google.com/app/apikey');
+    throw new Error('API quota exceeded. Please wait a few minutes...');
+  }
+  // ... more patterns
+}
+```
+
+### In `src/app/api/chat/route.ts`:
+```typescript
+catch (error: any) {
+  const errorMessage = error?.message || 'Failed to process request';
+  let statusCode = 500;
+
+  if (errorMessage.includes('quota')) {
+    statusCode = 429;
+    console.error('═══════════════════════════════════════');
+    console.error('❌ API QUOTA EXCEEDED');
+    console.error('═══════════════════════════════════════');
+    // ... friendly message
+  }
+
+  return NextResponse.json({ error: errorMessage }, { status: statusCode });
+}
+```
+
+### In `src/components/ChatInterface.tsx`:
+```typescript
+catch (error: any) {
+  let errorText = 'Sorry, I encountered an error.';
+
+  if (error.message?.includes('quota')) {
+    errorText = `⚠️ API Quota Exceeded
+
+I've hit the API rate limit. This usually resets in about a minute.
+
+Please try again in a moment, or check your API quota at:
+https://aistudio.google.com/app/apikey`;
+  }
+
+  setMessages(prev => [...prev, { role: 'assistant', content: errorText }]);
+}
+```
+
+## React Component Rules
+
+### Client Components
+- Use `'use client'` directive
+- Handle hydration with `useEffect` for client-only data:
+```typescript
+const [timeString, setTimeString] = useState<string>('');
+
+useEffect(() => {
+  setTimeString(new Date(timestamp).toLocaleTimeString());
+}, [timestamp]);
+```
+
+### Server Components
+- Default for pages and layouts
+- No `useState`, `useEffect`, or browser APIs
+
+## Common Patterns
+
+### Type Guards
+```typescript
+if ('enum' in prop && prop.enum) {
+  schema = z.enum(prop.enum as [string, ...string[]]);
+}
+```
+
+### MCP Server Imports
+```typescript
+import { executeFetchGameData } from './mcp-tools.js'; // .js extension required
+```
+
+### Gemini Chat History
+```typescript
+// Filter out leading assistant messages
+let filteredHistory = conversationHistory;
+while (filteredHistory.length > 0 && filteredHistory[0].role === 'assistant') {
+  filteredHistory = filteredHistory.slice(1);
+}
+
+const history = filteredHistory.map(msg => ({
+  role: msg.role === 'user' ? 'user' : 'model',
+  parts: [{ text: msg.content }],
+}));
+```
+
+## DO ✅
+
+- Define schemas once in `mcp-tools.ts`
+- Use `convertToZodSchema()` for Zod conversion
+- Provide emoji-formatted console errors
+- Show user-friendly error messages in chat
+- Use appropriate HTTP status codes (400, 401, 429, 500)
+- Handle hydration with `useEffect`
+- Keep tool execution in shared functions
+- Use `.js` extensions for MCP server imports
+
+## DON'T ❌
+
+- Duplicate schema definitions between files
+- Use generic error messages like "Something went wrong"
+- Hardcode API keys
+- Ignore hydration warnings
+- Use `toLocaleTimeString()` in server components
+- Create separate execution logic for same tool
+- Manually write Zod schemas when JSON Schema exists
+
+## Environment Variables
+
+Required in `.env.local`:
+```bash
+GEMINI_API_KEY=your_gemini_api_key
+RAWG_API_KEY=your_rawg_api_key
+```
+
+## Development Commands
+
+```bash
+npm run dev          # Start dev server (http://localhost:3001)
+npm run build        # Build for production
+npm run lint         # Run ESLint
+```
+
+## Troubleshooting Quick Reference
+
+**Quota Exceeded**: Wait 1 minute, check https://aistudio.google.com/app/apikey
+**Hydration Error**: Use `useEffect` for client-only rendering, add `'use client'`
+**TypeScript Error**: Check type guards, verify `.js` extensions in imports
+**Model Not Found**: Try `gemini-1.5-flash` instead of `gemini-2.0-flash-exp`
+
+## Testing Queries
+
+- "Show me the top rated games from 2023"
+- "What are the most popular RPG games?"
+- "Tell me about games on PlayStation"
+
+## Key Files to Reference
+
+- `.windsurfrules` - This file
+- `SCHEMA_CONVERSION.md` - Schema conversion architecture
+- `ERROR_HANDLING.md` - Error handling patterns
+- `MCP_INTEGRATION.md` - MCP implementation details
+- `SETUP_GUIDE.md` - Setup instructions
