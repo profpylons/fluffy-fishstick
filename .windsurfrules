@@ -1,207 +1,145 @@
-# Game Data Chat - Windsurf AI Rules
+# Game Data Chat - Windsurf AI Rules (Monorepo)
 
-You are an expert TypeScript/Next.js developer working on a game data analytics chat application.
+You are an expert TypeScript/Next.js developer working on a game data analytics chat application using a **monorepo architecture**.
 
 ## Core Rules
 
-1. **NEVER duplicate schema definitions** - All tool schemas are defined ONCE in `src/lib/mcp-tools.ts` and auto-converted to Zod
-2. **ALWAYS provide friendly error messages** - Use emoji indicators (❌, 💡, 📝) in console, user-friendly messages in UI
-3. **FOLLOW single source of truth** - `mcp-tools.ts` is the source, both Gemini and MCP server consume from it
-4. **USE proper TypeScript** - Strict typing, avoid `any` except in error handlers
-5. **HANDLE hydration** - Client-only rendering for timestamps and locale-specific data
-6. **MINIMAL comments** - Only add comments to describe out of the ordinary logic or situations
+1. **MONOREPO STRUCTURE** - Two separate packages: `chat-app` (UI) and `mcp-server` (tools)
+2. **TRUE MCP ARCHITECTURE** - Chat app uses Claude AI with MCP protocol to call tools in MCP server
+3. **NEVER duplicate schema definitions** - All tool schemas defined ONCE in `mcp-server/src/mcp-tools.ts`
+4. **ALWAYS provide friendly error messages** - Use emoji indicators (❌, 💡, 📝) in console, user-friendly messages in UI
+5. **USE proper TypeScript** - Strict typing, avoid `any` except in error handlers
+6. **HANDLE hydration** - Client-only rendering for timestamps and locale-specific data
 
 ## Tech Stack
 
-- Next.js 15 (App Router, Turbopack)
-- TypeScript (strict mode)
-- Gemini 2.0 Flash Experimental (function calling)
-- MCP SDK (@modelcontextprotocol/sdk with McpServer API)
-- Tailwind CSS
-- Zod validation
-- RAWG API
+- **Chat App**: Next.js 15, React 19, Tailwind CSS, Claude 3.5 Sonnet, MCP Client
+- **MCP Server**: Node.js, TypeScript, MCP SDK, Zod validation, RAWG API
+- **Protocol**: Model Context Protocol (stdio transport)
 
-## Critical Architecture
+## Monorepo Structure
 
-### Schema Flow (NEVER DUPLICATE)
 ```
-mcp-tools.ts (JSON Schema)
-    ↓ convertToZodSchema()
-    ↓
-fetchGameDataZodSchema (Zod)
-    ↓
-Used by mcp-server.ts
+packages/
+├── chat-app/          # Next.js UI + Claude + MCP Client
+└── mcp-server/        # MCP Server + Game data tools
 ```
 
-### Folder Responsibilities
-- `src/app` - Contains the main Next.js layouts and pages for the chat application
-- `src/app/api` - Contains the API routes to support the chat application
-- `src/lib` - Contains the core logic for the chat application, including the Gemini and MCP integration
-- `src/lib/mcp` - Contains the MCP server and tool definitions
-- `src/components` - Contains the UI components for the chat application
+## Architecture Flow
 
+```
+User → Chat App → Claude AI → MCP Protocol → MCP Server → RAWG API
+```
 
-## When Adding/Modifying Tools
+## Package Responsibilities
 
-1. **Edit ONLY `src/lib/mcp/tool-toolName.ts`**:
-2. **Register in Gemini** (`src/lib/gemini.ts`):
-3. **Register in MCP** (`src/lib/mcp-server.ts`):
+### chat-app
+- Next.js UI and routing
+- Claude AI integration
+- MCP Client (connects to MCP server)
+- User interface components
+- **DOES NOT** contain tool logic
 
+### mcp-server
+- MCP Server implementation
+- Tool definitions (fetch_game_data)
+- Tool execution logic
+- RAWG API integration
+- **DOES NOT** contain UI logic
 
-## Error Handling Pattern
+## Critical Patterns
 
-### In `src/lib/gemini.ts`:
+### When Adding Tools
+
+1. **Edit `packages/mcp-server/src/mcp-tools.ts`** - Define tool schema and execution
+2. **Register in `packages/mcp-server/src/mcp-server.ts`** - Register with MCP server
+3. **Rebuild MCP server** - `npm run build --workspace=mcp-server`
+4. **Chat app auto-discovers** - No changes needed in chat-app!
+
+### MCP Client Connection
+
+The chat app connects to MCP server via stdio:
+
 ```typescript
-catch (error: any) {
-  const errorMessage = error?.message || String(error);
-
-  if (errorMessage.includes('quota')) {
-    console.error('❌ Gemini API Quota Exceeded');
-    console.error('💡 You have exceeded your Gemini API quota.');
-    console.error('📝 Solutions:');
-    console.error('   1. Wait a few minutes and try again');
-    console.error('   2. Check your quota at: https://aistudio.google.com/app/apikey');
-    throw new Error('API quota exceeded. Please wait a few minutes...');
-  }
-  // ... more patterns
-}
+const transport = new StdioClientTransport({
+  command: 'node',
+  args: ['../../mcp-server/dist/index.js'],
+});
+await mcpClient.connect(transport);
 ```
 
-### In `src/app/api/chat/route.ts`:
-```typescript
-catch (error: any) {
-  const errorMessage = error?.message || 'Failed to process request';
-  let statusCode = 500;
+### Tool Calling Flow
 
-  if (errorMessage.includes('quota')) {
-    statusCode = 429;
-    console.error('═══════════════════════════════════════');
-    console.error('❌ API QUOTA EXCEEDED');
-    console.error('═══════════════════════════════════════');
-    // ... friendly message
-  }
+1. User sends message
+2. Claude decides to use tool
+3. Chat app calls MCP server via protocol
+4. MCP server executes tool
+5. Result sent back to Claude
+6. Claude generates response
 
-  return NextResponse.json({ error: errorMessage }, { status: statusCode });
-}
-```
+## File Locations
 
-### In `src/components/ChatInterface.tsx`:
-```typescript
-catch (error: any) {
-  let errorText = 'Sorry, I encountered an error.';
+### Chat App Files
+- `packages/chat-app/src/lib/claude-mcp.ts` - Claude + MCP client
+- `packages/chat-app/src/app/api/chat/route.ts` - Chat API
+- `packages/chat-app/src/components/*` - UI components
 
-  if (error.message?.includes('quota')) {
-    errorText = `⚠️ API Quota Exceeded
-
-I've hit the API rate limit. This usually resets in about a minute.
-
-Please try again in a moment, or check your API quota at:
-https://aistudio.google.com/app/apikey`;
-  }
-
-  setMessages(prev => [...prev, { role: 'assistant', content: errorText }]);
-}
-```
-
-## React Component Rules
-
-### Client Components
-- Use `'use client'` directive
-- Handle hydration with `useEffect` for client-only data:
-```typescript
-const [timeString, setTimeString] = useState<string>('');
-
-useEffect(() => {
-  setTimeString(new Date(timestamp).toLocaleTimeString());
-}, [timestamp]);
-```
-
-### Server Components
-- Default for pages and layouts
-- No `useState`, `useEffect`, or browser APIs
-
-## Common Patterns
-
-### Type Guards
-```typescript
-if ('enum' in prop && prop.enum) {
-  schema = z.enum(prop.enum as [string, ...string[]]);
-}
-```
-
-### MCP Server Imports
-```typescript
-import { executeFetchGameData } from './mcp-tools.js'; // .js extension required
-```
-
-### Gemini Chat History
-```typescript
-// Filter out leading assistant messages
-let filteredHistory = conversationHistory;
-while (filteredHistory.length > 0 && filteredHistory[0].role === 'assistant') {
-  filteredHistory = filteredHistory.slice(1);
-}
-
-const history = filteredHistory.map(msg => ({
-  role: msg.role === 'user' ? 'user' : 'model',
-  parts: [{ text: msg.content }],
-}));
-```
-
-## DO ✅
-
-- Define schemas once in `mcp-tools.ts`
-- Use `convertToZodSchema()` for Zod conversion
-- Provide emoji-formatted console errors
-- Show user-friendly error messages in chat
-- Use appropriate HTTP status codes (400, 401, 429, 500)
-- Handle hydration with `useEffect`
-- Keep tool execution in shared functions
-- Use `.js` extensions for MCP server imports
-
-## DON'T ❌
-
-- Duplicate schema definitions between files
-- Use generic error messages like "Something went wrong"
-- Hardcode API keys
-- Ignore hydration warnings
-- Use `toLocaleTimeString()` in server components
-- Create separate execution logic for same tool
-- Manually write Zod schemas when JSON Schema exists
-
-## Environment Variables
-
-Required in `.env.local`:
-```bash
-GEMINI_API_KEY=your_gemini_api_key
-RAWG_API_KEY=your_rawg_api_key
-```
+### MCP Server Files
+- `packages/mcp-server/src/mcp-tools.ts` - ⭐ SINGLE SOURCE OF TRUTH
+- `packages/mcp-server/src/mcp-server.ts` - MCP server setup
+- `packages/mcp-server/src/rawg.ts` - RAWG API client
 
 ## Development Commands
 
 ```bash
-npm run dev          # Start dev server (http://localhost:3001)
-npm run build        # Build for production
-npm run lint         # Run ESLint
+npm run dev              # Run chat app only
+npm run dev:mcp          # Run MCP server only
+npm run dev:all          # Run both
+npm run build            # Build all packages
 ```
 
-## Troubleshooting Quick Reference
+## DO ✅
 
-**Quota Exceeded**: Wait 1 minute, check https://aistudio.google.com/app/apikey
-**Hydration Error**: Use `useEffect` for client-only rendering, add `'use client'`
-**TypeScript Error**: Check type guards, verify `.js` extensions in imports
-**Model Not Found**: Try `gemini-1.5-flash` instead of `gemini-2.0-flash-exp`
+- Keep UI logic in chat-app
+- Keep tool logic in mcp-server
+- Use MCP protocol for communication
+- Define schemas once in mcp-server
+- Rebuild mcp-server after tool changes
+- Use Claude 3.5 Sonnet for AI
+- Handle errors gracefully in both packages
 
-## Testing Queries
+## DON'T ❌
 
-- "Show me the top rated games from 2023"
-- "What are the most popular RPG games?"
-- "Tell me about games on PlayStation"
+- Mix UI and tool logic
+- Duplicate tool definitions
+- Call RAWG API directly from chat-app
+- Hardcode API keys
+- Skip rebuilding mcp-server after changes
+- Use Gemini (we switched to Claude for MCP support)
 
-## Key Files to Reference
+## Environment Variables
 
-- `.windsurfrules` - This file
-- `SCHEMA_CONVERSION.md` - Schema conversion architecture
-- `ERROR_HANDLING.md` - Error handling patterns
-- `MCP_INTEGRATION.md` - MCP implementation details
-- `SETUP_GUIDE.md` - Setup instructions
+**chat-app/.env.local**:
+```
+ANTHROPIC_API_KEY=your_key
+```
+
+**mcp-server/.env.local**:
+```
+RAWG_API_KEY=your_key
+```
+
+## Key Benefits
+
+1. **Separation** - UI and tools are independent
+2. **Reusability** - MCP server works with any MCP client
+3. **Scalability** - Add tools without touching UI
+4. **Type Safety** - TypeScript + Zod throughout
+5. **True MCP** - Proper protocol implementation
+
+## Reference Docs
+
+- `README-MONOREPO.md` - Monorepo setup and architecture
+- `MCP_INTEGRATION.md` - MCP protocol details
+- `SCHEMA_CONVERSION.md` - Schema patterns
+- `ERROR_HANDLING.md` - Error handling

@@ -1,32 +1,18 @@
 {
-  "name": "game-data-chat",
+  "name": "game-data-chat-monorepo",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "@modelcontextprotocol/sdk": "^1.22.0",
-    "@tanstack/react-query": "^5.90.8",
-    "axios": "^1.13.2",
-    "next": "16.0.2",
-    "openai": "^6.8.1",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "zod": "^3.25.76"
+    "dev": "npm run dev --workspace=chat-app",
+    "dev:mcp": "npm run dev --workspace=mcp-server",
+    "dev:all": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.0.2",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }
