@@ -1,0 +1,36 @@
+name = "rawg-mcp-server"
+main = "src/cloudflare-worker.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers AI Gateway integration
+[ai]
+binding = "AI"
+
+# Environment variables (non-sensitive)
+[vars]
+ENVIRONMENT = "production"
+
+# Secrets configuration:
+# - Local dev: Create .dev.vars file (see .dev.vars.example)
+# - Production: Use `wrangler secret put RAWG_API_KEY`
+# NEVER put secrets directly in this file!
+
+# Development settings
+[env.development]
+vars = { ENVIRONMENT = "development" }
+
+# Production settings
+[env.production]
+vars = { ENVIRONMENT = "production" }
+routes = [
+  { pattern = "mcp.yourdomain.com/*", zone_name = "yourdomain.com" }
+]
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Observability
+[observability]
+enabled = true

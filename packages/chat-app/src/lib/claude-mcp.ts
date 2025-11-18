@@ -1,56 +1,75 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// MCP Client to connect to our MCP server
-let mcpClient: Client | null = null;
-let mcpTools: any[] = [];
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
-async function initializeMCPClient() {
-  if (mcpClient) return;
+// MCP Server HTTP endpoint (Cloudflare Workers)
+const MCP_SERVER_URL = process.env.MCP_SERVER_URL;
 
-  mcpClient = new Client(
-    {
-      name: 'chat-app-client',
-      version: '1.0.0',
-    },
-    {
-      capabilities: {},
+// Cached tools list
+let mcpTools: Anthropic.Messages.Tool[] = [];
+
+/**
+ * Fetch available tools from MCP server via HTTP
+ */
+async function fetchMCPTools() {
+  if (mcpTools.length > 0) return mcpTools;
+
+  try {
+    const response = await fetch(`${MCP_SERVER_URL}/v1/tools`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch tools: ${response.statusText}`);
     }
-  );
 
-  // Connect to MCP server via stdio
-  const transport = new StdioClientTransport({
-    command: 'node',
-    args: ['../../mcp-server/dist/index.js'],
-  });
+    const data = await response.json() as { tools: Array<{ name: string; description: string; inputSchema: Anthropic.Messages.Tool.InputSchema }> };
+    mcpTools = data.tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema,
+    }));
 
-  await mcpClient.connect(transport);
+    console.log('MCP tools loaded:', mcpTools.map(t => t.name));
+    return mcpTools;
+  } catch (error) {
+    console.error('Failed to fetch MCP tools:', error);
+    throw new Error('Could not connect to MCP server');
+  }
+}
 
-  // Get available tools from MCP server
-  const toolsList = await mcpClient.listTools();
-  mcpTools = toolsList.tools.map((tool: any) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.inputSchema,
-  }));
+/**
+ * Execute a tool on the MCP server via HTTP
+ */
+async function executeMCPTool(name: string, args: Record<string, unknown>) {
+  try {
+    const response = await fetch(`${MCP_SERVER_URL}/v1/tools/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, arguments: args }),
+    });
 
-  console.log('MCP Client initialized with tools:', mcpTools.map(t => t.name));
+    if (!response.ok) {
+      throw new Error(`Tool execution failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Tool execution error:', error);
+    throw error;
+  }
 }
 
 export async function generateChatResponse(
   userMessage: string,
   conversationHistory: { role: string; content: string }[]
 ) {
-  // Initialize MCP client if not already done
-  await initializeMCPClient();
+  // Fetch available tools from MCP server
+  const tools = await fetchMCPTools();
 
   // Build conversation history for Claude
-  const messages = conversationHistory
+  const messages: Anthropic.Messages.MessageParam[] = conversationHistory
     .filter(msg => msg.role !== 'system')
     .map(msg => ({
       role: msg.role as 'user' | 'assistant',
@@ -65,7 +84,7 @@ export async function generateChatResponse(
   try {
     // Initial request to Claude with MCP tools
     let response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: CLAUDE_MODEL,
       max_tokens: 4096,
       system: `You are a helpful AI assistant specializing in video game data analytics. You have access to game data tools through the MCP protocol.
 
@@ -77,25 +96,22 @@ When users ask about games, use the available tools to:
 - List available genres and platforms
 
 Be conversational, helpful, and provide clear, data-driven insights based on the data you retrieve.`,
-      tools: mcpTools,
+      tools,
       messages,
     });
 
     // Handle tool calls
     while (response.stop_reason === 'tool_use') {
       const toolUseBlock = response.content.find(
-        (block: any) => block.type === 'tool_use'
+        (block): block is Anthropic.Messages.ToolUseBlock => block.type === 'tool_use'
       );
 
       if (!toolUseBlock) break;
 
       console.log('Tool call:', toolUseBlock.name, toolUseBlock.input);
 
-      // Call MCP server tool
-      const toolResult = await mcpClient!.callTool({
-        name: toolUseBlock.name,
-        arguments: toolUseBlock.input,
-      });
+      // Execute tool via HTTP
+      const toolResult = await executeMCPTool(toolUseBlock.name, toolUseBlock.input as Record<string, unknown>);
 
       console.log('Tool result:', JSON.stringify(toolResult).substring(0, 200) + '...');
 
@@ -113,27 +129,27 @@ Be conversational, helpful, and provide clear, data-driven insights based on the
             tool_use_id: toolUseBlock.id,
             content: JSON.stringify(toolResult.content),
           },
-        ] as any,
+        ],
       });
 
       // Get next response from Claude
       response = await anthropic.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: CLAUDE_MODEL,
         max_tokens: 4096,
         system: `You are a helpful AI assistant specializing in video game data analytics.`,
-        tools: mcpTools,
+        tools,
         messages,
       });
     }
 
     // Extract final text response
     const textContent = response.content.find(
-      (block: any) => block.type === 'text'
+      (block): block is Anthropic.Messages.TextBlock => block.type === 'text'
     );
 
     return textContent?.text || 'No response generated';
-  } catch (error: any) {
-    const errorMessage = error?.message || String(error);
+  } catch (error: unknown) {
+    const errorMessage = (error instanceof Error ? error.message : String(error));
 
     if (errorMessage.includes('rate_limit') || errorMessage.includes('quota')) {
       console.error('❌ Claude API Rate Limit');

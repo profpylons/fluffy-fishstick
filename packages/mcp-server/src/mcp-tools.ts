@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { searchGames, getGameDetails, getGenres, getPlatforms } from '../rawg';
+import { searchGames, getGameDetails, getGenres, getPlatforms } from './rawg';
 
 // MCP Tool definition for Gemini function calling
 export const fetchGameDataTool = {

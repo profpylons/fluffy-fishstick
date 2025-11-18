@@ -1,12 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { 
-  fetchGameDataTool, 
-  fetchGameDataZodSchema, 
-  executeFetchGameData 
+import {
+  fetchGameDataTool,
+  fetchGameDataZodSchema,
+  executeFetchGameData
 } from './mcp-tools.js';
 
-// Create MCP server
+// Create stdio MCP server
 export const server = new McpServer(
   {
     name: 'rawg-game-data',
