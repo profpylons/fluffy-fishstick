@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Analytics MCP</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Game Analytics MCP</h1>
+            <p>Analyze game data using the RAWG API</p>
+        </header>
+
+        <main>
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="message system">
+                        <p>Welcome to Game Analytics MCP! Ask me anything about games.</p>
+                    </div>
+                </div>
+                
+                <div class="input-container">
+                    <input 
+                        type="text" 
+                        id="user-input" 
+                        placeholder="Ask a question about games..." 
+                        autocomplete="off"
+                    >
+                    <button id="send-button">Send</button>
+                </div>
+            </div>
+
+            <div class="evaluation">
+                <h2>Evaluation Metrics</h2>
+                <div id="metrics">
+                    <div class="metric">
+                        <span class="metric-label">API Response Time:</span>
+                        <span id="response-time">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Last Updated:</span>
+                        <span id="last-updated">-</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+name = "game-analytics-mcp"
+main = "src/index.ts"
+compatibility_date = "2023-05-18"
+
+[vars]
+# This will be set in the Cloudflare dashboard
+RAWG_API_KEY = ""
+
+# Enable the MCP protocol
+[mcp]
+enabled = true
