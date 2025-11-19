@@ -1,72 +1,90 @@
 # Game Data Analytics Chat
 
-An AI-powered chat application for analyzing video game data using the RAWG API and Google Gemini AI.
+An AI-powered chat application for analyzing video game data using the RAWG API and Claude AI with Model Context Protocol (MCP) integration.
 
 ## Features
 
-- 🤖 Conversational AI powered by Google Gemini
-- 🔧 **MCP (Model Context Protocol)** integration with `fetch_game_data` tool
+- 🤖 Conversational AI powered by Claude (Anthropic)
+- 🔧 **MCP (Model Context Protocol)** integration with `fetch_game_data` and `execute_calculation` tools
 - 🎮 Real-time game data from RAWG API
-- 📊 Data analytics and insights
+- 📊 Statistical calculations (sum, average, standard deviation)
 - 💬 Clean, modern chat interface
 - 🌙 Dark mode support
-- ⚡ Built with Next.js and TypeScript
+- ⚡ Built with Next.js 16 and TypeScript
+- ☁️ Cloudflare deployment ready (Pages + Workers)
+
+## Project Structure
+
+This is a monorepo with two packages:
+
+- **`packages/chat-app/`** - Next.js chat application (Cloudflare Pages)
+- **`packages/mcp-server/`** - MCP server running on Cloudflare Workers
 
 ## Setup
 
 ### 1. Install Dependencies
 
-```bash
-npm install
-```
+From the root directory:
 
-### 2. Environment Variables
+### 2. Configure Chat App
 
-Create a `.env.local` file in the root directory with the following variables:
+Navigate to the chat app and set up environment variables:
 
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-RAWG_API_KEY=your_rawg_api_key_here
-```
+Copy `packages/chat-app/env.example` to `packages/chat-app/.env` and configure:
 
-**Get your API keys:**
-- **Gemini API Key**: Get it from [Google AI Studio](https://makersuite.google.com/app/apikey)
-- **RAWG API Key**: Get it from [RAWG API](https://rawg.io/apidocs)
+- **ANTHROPIC_API_KEY** - Get from https://console.anthropic.com/
+- **MCP_SERVER_URL** - Use `http://localhost:8787` for local development
 
-### 3. Run Development Server
+### 3. Configure MCP Server
 
-```bash
-npm run dev
-```
+Navigate to the MCP server and set up environment variables:
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+Copy `packages/mcp-server/env.example` to `packages/mcp-server/.dev.vars` and configure:
+
+- **RAWG_API_KEY** - Get from https://rawg.io/apidocs
+
+### 4. Run Development Servers
+
+**Terminal 1 - Start MCP Server:**
+
+The MCP server will run at http://localhost:8787
+
+**Terminal 2 - Start Chat App:**
+
+The chat app will run at http://localhost:3000
 
 ## Usage
 
-Ask questions about games, such as:
+Ask questions about games and perform calculations:
 - "Show me the top rated games from 2023"
 - "What are the most popular games right now?"
 - "Tell me about games in the RPG genre"
-- "What are the best games on PlayStation?"
+- "Calculate the average of these numbers: 10, 20, 30, 40"
 
-The AI uses the MCP `fetch_game_data` tool to intelligently fetch relevant data from the RAWG API. See [MCP_INTEGRATION.md](./MCP_INTEGRATION.md) for details.
+The AI uses MCP tools to fetch game data from RAWG API and perform statistical calculations. See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for detailed documentation.
 
 ## Deploy to Cloudflare
 
-This application can be deployed to Cloudflare Pages:
+### Deploy MCP Server (Workers)
 
-```bash
-npm run build
-npx wrangler pages deploy .next
-```
+Set your RAWG API key as a secret, then deploy.
 
-Make sure to set your environment variables in the Cloudflare dashboard.
+### Deploy Chat App (Pages)
+
+Build and deploy the Next.js application.
+
+Set environment variables in Cloudflare Pages Dashboard:
+- **ANTHROPIC_API_KEY** - Your Claude API key
+- **MCP_SERVER_URL** - Your deployed Worker URL
+
+See [CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md) for detailed deployment instructions.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 with App Router
+- **Framework**: Next.js 16 with App Router
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **AI**: Google Gemini AI
+- **AI**: Claude (Anthropic) with MCP
 - **Data Source**: RAWG Video Games Database API
-- **Deployment**: Cloudflare Pages
+- **Deployment**: Cloudflare Pages + Workers
+- **MCP Tools**: Game data fetching, statistical calculations
