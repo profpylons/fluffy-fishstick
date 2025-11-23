@@ -31,6 +31,12 @@ routes = [
 [build]
 command = "npm run build"
 
+# Rules for bundling
+[[rules]]
+type = "Text"
+globs = ["**/*.test.ts", "**/__tests__/**"]
+fallthrough = true
+
 # Observability
 [observability]
 enabled = true

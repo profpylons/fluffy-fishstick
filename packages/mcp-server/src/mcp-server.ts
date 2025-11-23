@@ -4,7 +4,12 @@ import {
   fetchGameDataTool,
   fetchGameDataZodSchema,
   executeFetchGameData
-} from './mcp-tools.js';
+} from './tools/fetch-game-data.js';
+import {
+  executeCalculationTool,
+  executeCalculationZodSchema,
+  executeCalculation
+} from './tools/execute-calculation.js';
 
 // Create stdio MCP server
 export const server = new McpServer(
@@ -31,6 +36,41 @@ server.registerTool(
     try {
       // Use the shared executeFetchGameData function
       const result = await executeFetchGameData(args);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Register the execute_calculation tool
+server.registerTool(
+  executeCalculationTool.name,
+  {
+    title: 'Execute Calculation',
+    description: executeCalculationTool.description,
+    inputSchema: executeCalculationZodSchema,
+  },
+  async (args) => {
+    try {
+      // Use the shared executeCalculation function
+      const result = await executeCalculation(args);
 
       return {
         content: [

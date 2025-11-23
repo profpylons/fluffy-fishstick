@@ -1,15 +1,16 @@
 /**
  * Cloudflare Workers wrapper for MCP Server
- * 
+ *
  * This is a thin HTTP adapter that exposes the MCP tools
  * via HTTP endpoints for Cloudflare AI Gateway integration.
- * 
+ *
  * Note: This bypasses the stdio-based MCP server and calls
  * tool execution directly, since Workers use HTTP not stdio.
  */
 
-import { fetchGameDataTool, executeFetchGameData } from './mcp-tools.js';
-import { setApiKey } from './rawg.js';
+import { fetchGameDataTool, executeFetchGameData } from './tools/fetch-game-data.js';
+import { executeCalculationTool, executeCalculation } from './tools/execute-calculation.js';
+import { setApiKey } from './tools/rawg.js';
 
 // CORS headers for AI Gateway
 const CORS_HEADERS = {
@@ -37,14 +38,21 @@ function handleHealth(): Response {
  * Handle tools list endpoint - returns available MCP tools
  */
 function handleToolsList(): Response {
-  const tools = [{
-    name: fetchGameDataTool.name,
-    description: fetchGameDataTool.description,
-    inputSchema: fetchGameDataTool.parameters,
-  }];
+  const tools = [
+    {
+      name: fetchGameDataTool.name,
+      description: fetchGameDataTool.description,
+      inputSchema: fetchGameDataTool.parameters,
+    },
+    {
+      name: executeCalculationTool.name,
+      description: executeCalculationTool.description,
+      inputSchema: executeCalculationTool.parameters,
+    }
+  ];
 
   return new Response(
-    JSON.stringify({ tools }), 
+    JSON.stringify({ tools }),
     { headers: CORS_HEADERS }
   );
 }
@@ -57,16 +65,24 @@ async function handleToolExecution(request: Request, env: any): Promise<Response
     const body = await request.json() as any;
     const { name, arguments: args } = body;
 
-    // Validate tool name
-    if (name !== fetchGameDataTool.name) {
+    console.log(`Executing tool: ${name}`, JSON.stringify(args, null, 2));
+
+    let result;
+
+    // Execute the appropriate tool
+    if (name === fetchGameDataTool.name) {
+      result = await executeFetchGameData(args);
+    } else if (name === executeCalculationTool.name) {
+      result = await executeCalculation(args);
+    } else {
+      console.error(`Unknown tool requested: ${name}`);
       return new Response(
         JSON.stringify({ error: `Unknown tool: ${name}` }),
         { status: 404, headers: CORS_HEADERS }
       );
     }
 
-    // Execute the tool using existing logic
-    const result = await executeFetchGameData(args);
+    console.log(`Tool ${name} executed successfully`);
 
     // Return in MCP format
     return new Response(

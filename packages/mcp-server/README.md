@@ -42,6 +42,29 @@ npm run dev
 npm run cf:dev
 ```
 
+## Testing
+
+Run the test suite to verify tool functionality:
+
+**Run all tests:**
+```bash
+npm test
+```
+
+**Run tests in watch mode:**
+```bash
+npm run test:watch
+```
+
+**Run tests with coverage:**
+```bash
+npm run test:coverage
+```
+
+The test suite includes:
+- **execute-calculation tool** - Comprehensive tests for sum, average, and standard deviation calculations
+- **fetch-game-data tool** - Tests for tool definition, schema validation, and parameter structure
+
 ## Deployment
 
 ### Production Secrets
