@@ -36,14 +36,16 @@ Your Tools (RAWG API)
 
 ### 1. Transport Layer
 
-**Current (stdio)**:
+**stdio**:
+
 ```typescript
 const transport = new StdioServerTransport();
 await server.connect(transport);
 ```
 
-**Needed (HTTP)**:
-Cloudflare AI Gateway handles the MCP protocol via HTTP. Your Worker needs to:
+**HTTP**:
+Cloudflare AI Gateway handles the MCP protocol via HTTP:
+
 - Expose HTTP endpoints
 - Handle MCP protocol messages
 - Return responses in MCP format
@@ -107,16 +109,16 @@ packages/mcp-server/
 export default {
   async fetch(request: Request, env: any) {
     const url = new URL(request.url);
-    
+
     // MCP protocol endpoints
     if (url.pathname === '/v1/tools') {
       return handleToolsList(env);
     }
-    
+
     if (url.pathname === '/v1/tools/execute') {
       return handleToolExecution(request, env);
     }
-    
+
     return new Response('MCP Server', { status: 200 });
   }
 };
@@ -135,10 +137,10 @@ async function handleToolsList(env: any) {
 
 async function handleToolExecution(request: Request, env: any) {
   const { tool, arguments: args } = await request.json();
-  
+
   // Execute tool with env for API keys
   const result = await executeFetchGameData(args, env.RAWG_API_KEY);
-  
+
   return new Response(JSON.stringify(result), {
     headers: { 'Content-Type': 'application/json' }
   });
