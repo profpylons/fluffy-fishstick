@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Message } from '@/types/chat';
 
 interface ChatMessageProps {
@@ -9,14 +8,9 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
-  const [timeString, setTimeString] = useState<string>('');
-  
-  // Format time on client side only to avoid hydration mismatch
-  useEffect(() => {
-    setTimeString(new Date(message.timestamp).toLocaleTimeString());
-  }, [message.timestamp]);
-  
-  return (
+
+  // Format time - using suppressHydrationWarning on the element instead of client-side state
+  const formattedTime = new Date(message.timestamp).toLocaleTimeString();  return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div
         className={`max-w-[80%] rounded-lg px-4 py-3 ${
@@ -28,12 +22,27 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         <div className="text-sm font-medium mb-1">
           {isUser ? 'You' : 'AI Assistant'}
         </div>
-        <div className="text-sm whitespace-pre-wrap break-words">
+        {message.toolExecutions && message.toolExecutions.length > 0 && (
+          <div className="mb-2 pb-2 border-b border-gray-300 dark:border-gray-600">
+            <div className="text-xs opacity-70 mb-1">🔧 Tools used:</div>
+            <div className="flex flex-wrap gap-1">
+              {message.toolExecutions.map((tool, idx) => (
+                <span
+                  key={idx}
+                  className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 font-medium"
+                >
+                  {tool.toolName.replace(/_/g, ' ')}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="text-sm whitespace-pre-wrap wrap-break-word">
           {message.content}
         </div>
-        {timeString && (
-          <div className="text-xs mt-2 opacity-70">
-            {timeString}
+        {formattedTime && (
+          <div className="text-xs mt-2 opacity-70" suppressHydrationWarning>
+            {formattedTime}
           </div>
         )}
       </div>

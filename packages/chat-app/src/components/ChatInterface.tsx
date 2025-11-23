@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Message } from '@/types/chat';
-import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import ChatMessage from './ChatMessage';
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
@@ -36,6 +36,17 @@ export default function ChatInterface() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
+    // Add a temporary "thinking" message
+    const thinkingId = (Date.now() + 1).toString();
+    const thinkingMessage: Message = {
+      id: thinkingId,
+      role: 'assistant',
+      content: '🤔 Thinking...',
+      timestamp: new Date(),
+      toolExecutions: [],
+    };
+    setMessages((prev) => [...prev, thinkingMessage]);
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -48,30 +59,77 @@ export default function ChatInterface() {
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        // Use the error message from the API response
-        throw new Error(data.error || 'Failed to get response');
+        // Remove thinking message and throw error
+        setMessages((prev) => prev.filter(m => m.id !== thinkingId));
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response');
       }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-      };
+      // Read SSE stream
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let finalResponse = '';
+      const allToolExecutions: Array<{ toolName: string; args: Record<string, unknown>; timestamp: number }> = [];
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const event = JSON.parse(line.slice(6));
+
+                if (event.type === 'tool_start') {
+                  // Add tool to the thinking message in real-time
+                  allToolExecutions.push(event.data);
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === thinkingId
+                        ? { ...m, toolExecutions: [...allToolExecutions] }
+                        : m
+                    )
+                  );
+                } else if (event.type === 'response') {
+                  finalResponse = event.data;
+                } else if (event.type === 'done') {
+                  // Final update with complete response
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === thinkingId
+                        ? {
+                            ...m,
+                            content: finalResponse,
+                            toolExecutions: event.data.toolExecutions,
+                          }
+                        : m
+                    )
+                  );
+                } else if (event.type === 'error') {
+                  throw new Error(event.data);
+                }
+              } catch (e) {
+                console.error('Error parsing SSE event:', e);
+              }
+            }
+          }
+        }
+      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Error sending message:', error);
-      
+
       // Display friendly error messages to the user
       let errorText = 'Sorry, I encountered an error. Please try again.';
-      
+
       if (error.message) {
         const msg = error.message;
-        
+
         // Customize message based on error type
         if (msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
           errorText = `⚠️ API Quota Exceeded
@@ -93,47 +151,30 @@ The AI model (gemini-2.0-flash-exp) may not be available in your region or has b
           errorText = `⚠️ Error\n\n${msg}`;
         }
       }
-      
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: errorText,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      // Remove thinking message if it exists
+      setMessages((prev) => {
+        const filtered = prev.filter(m => m.id !== thinkingId);
+        return [...filtered, errorMessage];
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-      {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Game Data Analytics Chat
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Powered by RAWG API & Gemini AI
-        </p>
-      </div>
-
-      {/* Messages */}
+    <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <ChatMessage key={message.id} message={message} />
         ))}
-        {isLoading && (
-          <div className="flex justify-start mb-4">
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              </div>
-            </div>
-          </div>
-        )}
+
         <div ref={messagesEndRef} />
       </div>
 

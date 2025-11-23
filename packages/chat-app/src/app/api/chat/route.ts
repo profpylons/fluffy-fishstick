@@ -1,38 +1,54 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateChatResponse } from '@/lib/claude-mcp';
+import { NextRequest } from 'next/server';
+import { generateChatResponseStream } from '@/lib/claude-mcp';
 
 export async function POST(request: NextRequest) {
   try {
     const { message, history } = await request.json();
 
     if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Message is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     // Build conversation history
-    const conversationHistory = history.map((msg: any) => ({
+    const conversationHistory = (history as Array<{ role: string; content: string }>).map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
 
-    // Generate response using Gemini with MCP tool calling
-    // The model will automatically call fetch_game_data when needed
-    const responseText = await generateChatResponse(
-      message,
-      conversationHistory
-    );
-
-    return NextResponse.json({
-      message: responseText,
+    // Create SSE stream
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const event of generateChatResponseStream(message, conversationHistory)) {
+            const data = `data: ${JSON.stringify(event)}\n\n`;
+            controller.enqueue(encoder.encode(data));
+          }
+          controller.close();
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to process request';
+          const errorData = `data: ${JSON.stringify({ type: 'error', data: errorMessage })}\n\n`;
+          controller.enqueue(encoder.encode(errorData));
+          controller.close();
+        }
+      },
     });
-  } catch (error: any) {
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
+  } catch (error: unknown) {
     console.error('Error in chat API:', error);
 
     // Return user-friendly error messages
-    const errorMessage = error?.message || 'Failed to process request';
+    const errorMessage = (error instanceof Error ? error.message : null) || 'Failed to process request';
 
     // Determine appropriate status code
     let statusCode = 500;
@@ -42,9 +58,12 @@ export async function POST(request: NextRequest) {
       statusCode = 401; // Unauthorized
     }
 
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: statusCode }
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      {
+        status: statusCode,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 }
