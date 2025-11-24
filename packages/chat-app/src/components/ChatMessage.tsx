@@ -1,10 +1,14 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessageProps } from '@/types/components';
+import DebugPanel from './DebugPanel';
 
 export default function ChatMessage({ message }: ChatMessageProps) {
+  const searchParams = useSearchParams();
+  const debugMode = searchParams.get('debug') !== null;
   const isUser = message.role === 'user';
 
   // Format time - using suppressHydrationWarning on the element instead of client-side state
@@ -42,6 +46,12 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             {message.content}
           </ReactMarkdown>
         </div>
+
+        {/* Debug panel - only shown when ?debug is in URL and message has tool executions */}
+        {debugMode && !isUser && message.toolExecutions && message.toolExecutions.length > 0 && (
+          <DebugPanel toolExecutions={message.toolExecutions} />
+        )}
+
         {formattedTime && (
           <div className="text-xs mt-2 opacity-70" suppressHydrationWarning>
             {formattedTime}

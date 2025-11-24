@@ -76,6 +76,9 @@ export default function ChatInterface() {
     };
     setMessages((prev) => [...prev, thinkingMessage]);
 
+    // Track tool executions outside try block so catch can access them
+    const allToolExecutions: Array<{ toolName: string; args: Record<string, unknown>; timestamp: number; result?: unknown }> = [];
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -99,20 +102,29 @@ export default function ChatInterface() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let finalResponse = '';
-      const allToolExecutions: Array<{ toolName: string; args: Record<string, unknown>; timestamp: number }> = [];
+      let buffer = ''; // Buffer for incomplete lines
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          // Add chunk to buffer and split by newlines
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+
+          // Keep the last incomplete line in buffer
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+
+              // Skip empty data lines
+              if (!data) continue;
+
               try {
-                const event = JSON.parse(line.slice(6));
+                const event = JSON.parse(data);
 
                 if (event.type === 'tool_start') {
                   // Add tool to the thinking message in real-time
@@ -148,6 +160,7 @@ export default function ChatInterface() {
                     role: 'assistant',
                     content: errorText,
                     timestamp: new Date(),
+                    toolExecutions: allToolExecutions, // Keep tool data for debugging
                   };
 
                   // Replace thinking message with error message
@@ -178,6 +191,7 @@ export default function ChatInterface() {
         role: 'assistant',
         content: errorText,
         timestamp: new Date(),
+        toolExecutions: allToolExecutions, // Keep tool data for debugging
       };
       // Remove thinking message if it exists
       setMessages((prev) => {

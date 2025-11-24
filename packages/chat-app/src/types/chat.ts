@@ -3,6 +3,7 @@ export interface ToolExecution {
   toolName: string;
   args: Record<string, unknown>;
   timestamp: number;
+  result?: unknown; // Raw JSON result from tool execution (for debug mode)
 }
 
 // Tool status for real-time UI notifications
@@ -19,6 +20,9 @@ export interface Message {
   content: string;
   timestamp: Date;
   toolExecutions?: ToolExecution[];
+  debugData?: {
+    toolExecutions: ToolExecution[];
+  };
 }
 
 export interface ChatRequest {

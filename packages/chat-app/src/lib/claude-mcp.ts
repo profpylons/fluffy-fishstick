@@ -134,9 +134,9 @@ CRITICAL - Statistical Analysis Rules:
 7. Example: If you have ratings [4.5, 4.2, 4.8], call execute_calculation with operations: ['average', 'std_dev']
 
 IMPORTANT - API Efficiency Strategy:
-1. **Minimize API calls**: Plan your approach to use the fewest number of API queries possible
+1. **Minimize API calls**: We have a very low API rate limit. Plan your approach to use the fewest number of API queries possible
 2. **Prefer batch queries**: Always request multiple results (use page_size parameter) rather than making multiple single-item queries
-3. **Think before calling**: Before making a tool call, consider if you can get all needed data in one query or if you can reuse data from previous queries
+3. **Think before calling**: Before making a tool call, if you could reverse the order of queries to get all needed data in one query or if you can reuse data from previous queries, do so
 
 Example workflow:
 - User asks: "What's the average rating of top RPG games from 2023?"
@@ -161,18 +161,19 @@ The current date is ${new Date().toISOString()}.`,
       if (!toolUseBlock) break;
 
       // Track tool execution and notify client
+      // Execute tool via HTTP (handles notification internally)
+      const toolResult = await executeMCPTool(toolUseBlock.name, toolUseBlock.input as Record<string, unknown>);
+
       const toolExecution: ToolExecution = {
         toolName: toolUseBlock.name,
         args: toolUseBlock.input as Record<string, unknown>,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        result: toolResult.content // Store raw result for debug mode
       };
       toolExecutions.push(toolExecution);
 
       // Yield tool start event
       yield { type: 'tool_start', data: toolExecution };
-
-      // Execute tool via HTTP (handles notification internally)
-      const toolResult = await executeMCPTool(toolUseBlock.name, toolUseBlock.input as Record<string, unknown>);
 
       // Yield tool complete event
       yield { type: 'tool_complete', data: { toolName: toolUseBlock.name } };
