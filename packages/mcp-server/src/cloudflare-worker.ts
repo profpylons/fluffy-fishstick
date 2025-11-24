@@ -10,6 +10,7 @@
 
 import { fetchGameDataTool, executeFetchGameData } from './tools/fetch-game-data.js';
 import { executeCalculationTool, executeCalculation } from './tools/execute-calculation.js';
+import { calculateRatingAverageTool, executeCalculateRatingAverage } from './tools/calculate-rating-average.js';
 import { setApiKey } from './tools/rawg.js';
 
 // CORS headers for AI Gateway
@@ -69,6 +70,11 @@ function handleToolsList(request: Request, env: any): Response {
       name: executeCalculationTool.name,
       description: executeCalculationTool.description,
       inputSchema: executeCalculationTool.parameters,
+    },
+    {
+      name: calculateRatingAverageTool.name,
+      description: calculateRatingAverageTool.description,
+      inputSchema: calculateRatingAverageTool.parameters,
     }
   ];
 
@@ -102,6 +108,8 @@ async function handleToolExecution(request: Request, env: any): Promise<Response
       result = await executeFetchGameData(args);
     } else if (name === executeCalculationTool.name) {
       result = await executeCalculation(args);
+    } else if (name === calculateRatingAverageTool.name) {
+      result = await executeCalculateRatingAverage(args);
     } else {
       console.error(`Unknown tool requested: ${name}`);
       return new Response(

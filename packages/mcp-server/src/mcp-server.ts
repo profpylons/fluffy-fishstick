@@ -10,6 +10,11 @@ import {
   executeCalculationZodSchema,
   executeCalculation
 } from './tools/execute-calculation.js';
+import {
+  calculateRatingAverageTool,
+  calculateRatingAverageZodSchema,
+  executeCalculateRatingAverage
+} from './tools/calculate-rating-average.js';
 
 // Create stdio MCP server
 export const server = new McpServer(
@@ -71,6 +76,41 @@ server.registerTool(
     try {
       // Use the shared executeCalculation function
       const result = await executeCalculation(args);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Register the calculate_rating_average tool
+server.registerTool(
+  calculateRatingAverageTool.name,
+  {
+    title: 'Calculate Rating Average',
+    description: calculateRatingAverageTool.description,
+    inputSchema: calculateRatingAverageZodSchema,
+  },
+  async (args) => {
+    try {
+      // Use the shared executeCalculateRatingAverage function
+      const result = await executeCalculateRatingAverage(args);
 
       return {
         content: [
