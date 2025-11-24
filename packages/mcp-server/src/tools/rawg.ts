@@ -32,6 +32,33 @@ export interface GameSearchParams {
   genres?: string;
 }
 
+// Helper function to remove tags from game objects to save tokens
+function stripTags(data: any): any {
+  if (Array.isArray(data)) {
+    return data.map(item => stripTags(item));
+  }
+
+  if (data && typeof data === 'object') {
+    const cleaned = { ...data };
+
+    // Remove tags field from game objects
+    if ('tags' in cleaned) {
+      delete cleaned.tags;
+    }
+
+    // Recursively clean nested objects
+    for (const key in cleaned) {
+      if (typeof cleaned[key] === 'object') {
+        cleaned[key] = stripTags(cleaned[key]);
+      }
+    }
+
+    return cleaned;
+  }
+
+  return data;
+}
+
 export async function searchGames(params: GameSearchParams) {
   try {
     const response = await axios.get(`${RAWG_BASE_URL}/games`, {
@@ -40,7 +67,8 @@ export async function searchGames(params: GameSearchParams) {
         ...params,
       },
     });
-    return response.data;
+    // Remove tags to save tokens
+    return stripTags(response.data);
   } catch (error) {
     console.error('Error fetching games:', error);
     throw error;
@@ -54,7 +82,8 @@ export async function getGameDetails(id: number) {
         key: getApiKey(),
       },
     });
-    return response.data;
+    // Remove tags to save tokens
+    return stripTags(response.data);
   } catch (error) {
     console.error('Error fetching game details:', error);
     throw error;
