@@ -37,8 +37,9 @@ yarn-error.log*
 # Cloudflare Workers secrets (local development)
 .dev.vars
 
-# vercel
+# deployment
 .vercel
+.wrangler/
 
 # typescript
 *.tsbuildinfo
