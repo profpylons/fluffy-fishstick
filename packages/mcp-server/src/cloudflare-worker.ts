@@ -16,9 +16,23 @@ import { setApiKey } from './tools/rawg.js';
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, x-authentication-secret',
   'Content-Type': 'application/json',
 };
+
+/**
+ * Validate authentication secret from request header
+ */
+function isAuthenticated(request: Request, env: any): boolean {
+  const expectedSecret = env.SHARED_SECRET;
+  if (!expectedSecret) {
+    console.warn('⚠️ SHARED_SECRET not configured in environment');
+    return true; // Allow if not configured (development mode)
+  }
+
+  const providedSecret = request.headers.get('x-authentication-secret');
+  return providedSecret === expectedSecret;
+}
 
 /**
  * Handle CORS preflight requests
@@ -37,7 +51,14 @@ function handleHealth(): Response {
 /**
  * Handle tools list endpoint - returns available MCP tools
  */
-function handleToolsList(): Response {
+function handleToolsList(request: Request, env: any): Response {
+  if (!isAuthenticated(request, env)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: CORS_HEADERS }
+    );
+  }
+
   const tools = [
     {
       name: fetchGameDataTool.name,
@@ -61,6 +82,13 @@ function handleToolsList(): Response {
  * Handle tool execution endpoint - executes a specific tool
  */
 async function handleToolExecution(request: Request, env: any): Promise<Response> {
+  if (!isAuthenticated(request, env)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: CORS_HEADERS }
+    );
+  }
+
   try {
     const body = await request.json() as any;
     const { name, arguments: args } = body;
@@ -178,7 +206,7 @@ export default {
     }
 
     if (url.pathname === '/v1/tools') {
-      return handleToolsList();
+      return handleToolsList(request, env);
     }
 
     if (url.pathname === '/v1/tools/execute' && request.method === 'POST') {

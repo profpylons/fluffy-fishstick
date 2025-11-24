@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Message } from '@/types/chat';
 import ChatInput from './ChatInput';
 import ChatMessage from './ChatMessage';
@@ -35,16 +36,68 @@ There's a problem with the API key configuration. Please check that your ANTHROP
 }
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I can help you analyze game data from the RAWG database. Ask me about games, ratings, platforms, genres, or any other gaming statistics!',
-      timestamp: new Date(),
-    },
-  ]);
+  const searchParams = useSearchParams();
+  const clientToken = searchParams.get('clientToken');
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Verify authentication on mount
+  useEffect(() => {
+    const verifyAuth = async () => {
+      if (!clientToken) {
+        setIsAuthenticated(false);
+        setMessages([{
+          id: '1',
+          role: 'assistant',
+          content: '🔒 **Authentication Required**\n\nPlease provide a valid client token in the URL query string to access this application.\n\nExample: `?clientToken=your-token-here`',
+          timestamp: new Date(),
+        }]);
+        return;
+      }
+
+      // Validate token with server
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: '__auth_check__', history: [], clientToken }),
+        });
+
+        if (response.ok || response.status === 400) {
+          // 400 means token is valid but message is invalid (expected for __auth_check__)
+          setIsAuthenticated(true);
+          setMessages([{
+            id: '1',
+            role: 'assistant',
+            content: 'Hello! I can help you analyze game data from the RAWG database. Ask me about games, ratings, platforms, genres, or any other gaming statistics!',
+            timestamp: new Date(),
+          }]);
+        } else {
+          setIsAuthenticated(false);
+          setMessages([{
+            id: '1',
+            role: 'assistant',
+            content: '🔒 **Authentication Failed**\n\nThe provided client token is invalid. Please check your token and try again.',
+            timestamp: new Date(),
+          }]);
+        }
+      } catch (error) {
+        console.error('Auth verification error:', error);
+        setIsAuthenticated(false);
+        setMessages([{
+          id: '1',
+          role: 'assistant',
+          content: '🔒 **Authentication Error**\n\nUnable to verify authentication. Please try again.',
+          timestamp: new Date(),
+        }]);
+      }
+    };
+
+    verifyAuth();
+  }, [clientToken]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -88,6 +141,7 @@ export default function ChatInterface() {
         body: JSON.stringify({
           message: content,
           history: messages,
+          clientToken,
         }),
       });
 
@@ -213,8 +267,11 @@ export default function ChatInterface() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <ChatInput onSend={handleSendMessage} disabled={isLoading} />
+      {/* Input - disabled if not authenticated */}
+      <ChatInput
+        onSend={handleSendMessage}
+        disabled={isLoading || isAuthenticated !== true}
+      />
     </div>
   );
 }

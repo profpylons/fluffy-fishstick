@@ -172,14 +172,34 @@ vars = { ENVIRONMENT = "production" }
 # Set via: wrangler secret put RAWG_API_KEY
 ```
 
-### Step 4: Deploy
+### Step 4: Set Secrets (CRITICAL)
+
+**⚠️ IMPORTANT: Use Cloudflare Workers secrets for API keys!**
+
+Workers secrets are encrypted and not visible in the dashboard or logs.
 
 ```bash
 cd packages/mcp-server
-npm install -g wrangler
+
+# Login to Cloudflare (first time only)
 wrangler login
+
+# Set RAWG API key as encrypted secret
 wrangler secret put RAWG_API_KEY
+# When prompted, paste your RAWG API key from https://rawg.io/apidocs
+
+# Verify secret is set (won't show value)
+wrangler secret list
+```
+
+### Step 5: Deploy
+
+```bash
+# Deploy to Cloudflare Workers
 wrangler deploy
+
+# Your MCP server will be available at:
+# https://your-worker-name.your-subdomain.workers.dev
 ```
 
 ### Step 5: Configure Cloudflare AI Gateway
@@ -189,6 +209,62 @@ In Cloudflare Dashboard:
 2. Add MCP Server
 3. Enter your Worker URL
 4. Configure authentication
+
+## Security: Managing Secrets
+
+### Workers Secrets vs Environment Variables
+
+**Use Secrets for**:
+- API keys (RAWG_API_KEY)
+- Authentication tokens
+- Database credentials
+
+**Use Environment Variables for**:
+- Public URLs
+- Configuration flags
+- Non-sensitive settings
+
+### Setting Secrets via CLI
+
+```bash
+# Set a secret
+wrangler secret put SECRET_NAME
+
+# List secrets (won't show values)
+wrangler secret list
+
+# Delete a secret
+wrangler secret delete SECRET_NAME
+
+# Update a secret (same as put)
+wrangler secret put SECRET_NAME
+```
+
+### Accessing Secrets in Code
+
+```typescript
+export default {
+  async fetch(request: Request, env: Env) {
+    // Access secret from env binding
+    const apiKey = env.RAWG_API_KEY;
+
+    // Use in API calls
+    const response = await fetch(`${API_URL}?key=${apiKey}`);
+  }
+};
+```
+
+### Key Rotation
+
+```bash
+# Get new RAWG API key from https://rawg.io/apidocs
+# Update the secret
+wrangler secret put RAWG_API_KEY
+# Paste new key when prompted
+
+# Deploy to use new key
+wrangler deploy
+```
 
 ## Limitations & Considerations
 

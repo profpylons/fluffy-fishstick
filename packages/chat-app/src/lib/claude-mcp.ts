@@ -28,7 +28,11 @@ async function fetchMCPTools() {
 
   console.log('🔍 Fetching MCP tools from:', `${MCP_SERVER_URL}/v1/tools`);
   try {
-    const response = await fetch(`${MCP_SERVER_URL}/v1/tools`);
+    const response = await fetch(`${MCP_SERVER_URL}/v1/tools`, {
+      headers: {
+        'x-authentication-secret': process.env.SHARED_SECRET || '',
+      },
+    });
     if (!response.ok) {
       console.error('❌ MCP server responded with:', response.status, response.statusText);
       throw new Error(`Failed to fetch tools: ${response.statusText}`);
@@ -66,7 +70,10 @@ async function executeMCPTool(name: string, args: Record<string, unknown>) {
   try {
     const response = await fetch(`${MCP_SERVER_URL}/v1/tools/execute`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-authentication-secret': process.env.SHARED_SECRET || '',
+      },
       body: JSON.stringify({ name, arguments: args }),
     });
 

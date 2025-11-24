@@ -2,4 +2,9 @@
 # Copy this file to .dev.vars and add your actual keys
 # .dev.vars is gitignored and will NOT be committed
 
+# RAWG API Key (get from https://rawg.io/apidocs)
 RAWG_API_KEY=your_rawg_api_key_here
+
+# Shared Secret for Authentication
+# Chat app must include this in x-authentication-secret header
+SHARED_SECRET=your-shared-secret-here

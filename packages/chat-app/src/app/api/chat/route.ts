@@ -3,7 +3,16 @@ import { generateChatResponseStream } from '@/lib/claude-mcp';
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, history } = await request.json();
+    const { message, history, clientToken } = await request.json();
+
+    // Validate client token
+    const expectedToken = process.env.CLIENT_TOKEN;
+    if (!expectedToken || clientToken !== expectedToken) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or missing client token' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!message) {
       return new Response(
