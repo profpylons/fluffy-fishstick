@@ -1,11 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-
-interface ChatInputProps {
-  onSend: (message: string) => void;
-  disabled?: boolean;
-}
+import type { ChatInputProps } from '@/types/components';
 
 export default function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState('');

@@ -1,16 +1,16 @@
 'use client';
 
-import { Message } from '@/types/chat';
-
-interface ChatMessageProps {
-  message: Message;
-}
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { ChatMessageProps } from '@/types/components';
 
 export default function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   // Format time - using suppressHydrationWarning on the element instead of client-side state
-  const formattedTime = new Date(message.timestamp).toLocaleTimeString();  return (
+  const formattedTime = new Date(message.timestamp).toLocaleTimeString();
+
+  return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div
         className={`max-w-[80%] rounded-lg px-4 py-3 ${
@@ -37,8 +37,10 @@ export default function ChatMessage({ message }: ChatMessageProps) {
             </div>
           </div>
         )}
-        <div className="text-sm whitespace-pre-wrap wrap-break-word">
-          {message.content}
+        <div className="text-sm markdown-content">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {message.content}
+          </ReactMarkdown>
         </div>
         {formattedTime && (
           <div className="text-xs mt-2 opacity-70" suppressHydrationWarning>

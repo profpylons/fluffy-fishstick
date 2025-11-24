@@ -5,6 +5,35 @@ import { Message } from '@/types/chat';
 import ChatInput from './ChatInput';
 import ChatMessage from './ChatMessage';
 
+// Helper function to convert error messages into user-friendly text
+function formatErrorMessage(errorMsg: string): string {
+  if (errorMsg.includes('rate limit') || errorMsg.includes('quota')) {
+    return `⚠️ API Rate Limit Exceeded
+
+I've hit the API rate limit. This usually resets in about a minute.
+
+Please try again in a moment, or check your API quota at:
+https://console.anthropic.com/`;
+  }
+
+  if (errorMsg.includes('MCP server') || errorMsg.includes('MCP_SERVER_URL')) {
+    return `⚠️ MCP Server Connection Error
+
+${errorMsg}
+
+If running locally, make sure to start the MCP server:
+cd packages/mcp-server && npm run cf:dev`;
+  }
+
+  if (errorMsg.includes('authentication') || errorMsg.includes('api_key')) {
+    return `⚠️ API Key Issue
+
+There's a problem with the API key configuration. Please check that your ANTHROPIC_API_KEY is set correctly in the .env file.`;
+  }
+
+  return `⚠️ Error\n\n${errorMsg}`;
+}
+
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -111,7 +140,22 @@ export default function ChatInterface() {
                     )
                   );
                 } else if (event.type === 'error') {
-                  throw new Error(event.data);
+                  // Handle error from stream - display friendly message to user
+                  const errorText = formatErrorMessage(event.data);
+
+                  const errorMessage: Message = {
+                    id: (Date.now() + 2).toString(),
+                    role: 'assistant',
+                    content: errorText,
+                    timestamp: new Date(),
+                  };
+
+                  // Replace thinking message with error message
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === thinkingId ? errorMessage : m))
+                  );
+                  // Exit the stream reading loop
+                  break;
                 }
               } catch (e) {
                 console.error('Error parsing SSE event:', e);
@@ -125,32 +169,9 @@ export default function ChatInterface() {
       console.error('Error sending message:', error);
 
       // Display friendly error messages to the user
-      let errorText = 'Sorry, I encountered an error. Please try again.';
-
-      if (error.message) {
-        const msg = error.message;
-
-        // Customize message based on error type
-        if (msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-          errorText = `⚠️ API Quota Exceeded
-
-I've hit the API rate limit. This usually resets in about a minute.
-
-Please try again in a moment, or check your API quota at:
-https://aistudio.google.com/app/apikey`;
-        } else if (msg.includes('invalid API key') || msg.includes('API_KEY_INVALID')) {
-          errorText = `⚠️ API Key Issue
-
-There's a problem with the API key configuration. Please check that your GEMINI_API_KEY is set correctly in the .env.local file.`;
-        } else if (msg.includes('model not found') || msg.includes('not available')) {
-          errorText = `⚠️ Model Not Available
-
-The AI model (gemini-2.0-flash-exp) may not be available in your region or has been deprecated. The administrator should try using "gemini-1.5-flash" instead.`;
-        } else {
-          // Use the actual error message for other errors
-          errorText = `⚠️ Error\n\n${msg}`;
-        }
-      }
+      const errorText = formatErrorMessage(
+        error.message || 'Sorry, I encountered an error. Please try again.'
+      );
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),

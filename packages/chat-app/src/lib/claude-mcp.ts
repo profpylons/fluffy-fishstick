@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ToolExecution } from '@/types/chat';
+import type { ToolExecution, StreamEvent } from '@/types/chat';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -17,6 +17,10 @@ let mcpTools: Anthropic.Messages.Tool[] = [];
  * Fetch available tools from MCP server via HTTP
  */
 async function fetchMCPTools() {
+  if (!MCP_SERVER_URL) {
+    throw new Error('MCP_SERVER_URL environment variable is not set. Please check your .env.local file.');
+  }
+
   if (mcpTools.length > 0) {
     console.log('📦 Using cached MCP tools:', mcpTools.map(t => t.name).join(', '));
     return mcpTools;
@@ -41,7 +45,10 @@ async function fetchMCPTools() {
     return mcpTools;
   } catch (error) {
     console.error('❌ Failed to fetch MCP tools:', error);
-    throw new Error('Could not connect to MCP server');
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Cannot connect to MCP server at ${MCP_SERVER_URL}. Make sure the MCP server is running (npm run cf:dev in packages/mcp-server).`);
+    }
+    throw new Error('Could not connect to MCP server: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
 
@@ -49,6 +56,10 @@ async function fetchMCPTools() {
  * Execute a tool on the MCP server via HTTP
  */
 async function executeMCPTool(name: string, args: Record<string, unknown>) {
+  if (!MCP_SERVER_URL) {
+    throw new Error('MCP_SERVER_URL environment variable is not set. Please check your .env.local file.');
+  }
+
   console.log(`🔧 Executing MCP tool: ${name}`);
   console.log('📝 Tool arguments:', JSON.stringify(args, null, 2));
 
@@ -70,15 +81,12 @@ async function executeMCPTool(name: string, args: Record<string, unknown>) {
     return result;
   } catch (error) {
     console.error('❌ Tool execution error:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Cannot connect to MCP server at ${MCP_SERVER_URL}. Make sure the MCP server is running.`);
+    }
     throw error;
   }
 }
-
-export type StreamEvent =
-  | { type: 'tool_start'; data: ToolExecution }
-  | { type: 'tool_complete'; data: { toolName: string } }
-  | { type: 'response'; data: string }
-  | { type: 'done'; data: { toolExecutions: ToolExecution[] } };
 
 export async function* generateChatResponseStream(
   userMessage: string,

@@ -31,3 +31,10 @@ export interface ChatResponse {
   gameData?: unknown;
   toolExecutions?: ToolExecution[];
 }
+
+export type StreamEvent =
+  | { type: 'tool_start'; data: ToolExecution }
+  | { type: 'tool_complete'; data: { toolName: string } }
+  | { type: 'response'; data: string }
+  | { type: 'done'; data: { toolExecutions: ToolExecution[] } }
+  | { type: 'error'; data: string };
