@@ -2,6 +2,13 @@
   name = "rawg-chat-app"
   compatibility_date = "2025-03-25"
   compatibility_flags = ["nodejs_compat"]
+
+  [observability]
+  enabled = true
+
+  [vars]
+  MCP_SERVER_URL = "https://rawg-mcp-server.profpylons.workers.dev"
+
   [assets]
   directory = ".open-next/assets"
   binding = "ASSETS"
