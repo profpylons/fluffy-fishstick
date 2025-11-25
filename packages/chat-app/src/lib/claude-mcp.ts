@@ -3,6 +3,8 @@ import type { ToolExecution, StreamEvent } from '@/types/chat';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  // Use fetch instead of Node.js https for Cloudflare Workers/Pages compatibility
+  fetch: fetch,
 });
 
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
