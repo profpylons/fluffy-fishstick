@@ -25,14 +25,32 @@ However, I didn't see a marked difference from Github Copilot, so near the end I
 
 Token limits and API overload. I've done some Bad Things™ to limit this....
 
-1. I strip out the tags becuase they are a large and repetitive structure
-2. I've promoted to limit to 2 pages maximum results (at page size 40)
+1. I strip out the tags because they are a large and repetitive structure
+2. I've prompted to limit to 2 pages maximum results (at page size 40)
 
 (see below, next steps - it occured late on that I could add a tool to strip out all unnecessary fields based on the summarisation expected)
 
+-----
+
 Prompt optimisation needs more work. I have tools and propmts that are not reliably called eg. I created a tool for rating averages (as they are weighted in the response), but the AI doesn't reliably recognise that it needs to be used.
 
-Similarly, it doesn't reliably report standard deviation with the averages. (it was so sporadic that it's removed from the prompt now.)
+Similarly, it doesn't reliably report standard deviation with the averages. (it was so sporadic that it's removed from the prompt now)
+
+-----
+
+And lastly Cloudflare.
+
+I commited a cardinal sin and thought that deployment of the web app would be straight forward. So I skipped this at the time I created a deployment for the MCP server (step 6 below).
+
+This was a mistake. In the end I didn't get there in one step..
+
+At one point I had to roll back the whole repo and force push in a new direction. There was confusion between a Pages app and a Worker app and the support in each for Next 16.
+
+Next I found I couldn't call between the services when they were both deployed to Cloudflare. when the chat-app was local, no problem. When I called the mcp-server from curl, no problem.
+
+It seems cloudflare worker apps cannot call each other by default(!). After some serious additional logging I found the problems was `Error 1042` and it needed an extra flag to allow this transport route out to the internet and back.
+
+Biggest lesson: Cloudflare is not AWS or Google Cloud.
 
 ### The major steps were:
 
@@ -48,15 +66,27 @@ Similarly, it doesn't reliably report standard deviation with the averages. (it 
 10. Improved the feedback in the UI with Markdown, notice of tool use and making the raw data available with `?debug` querystring
 11. Strip some unused properties from large responses to save tokens (and API rate limiting!)
 12. Add some rudimentary "auth" with shared secrets
+13. Create the web
 
 ### What's next (if this was real)
 
-1. Some real auth!! (OAuth, JWT)
-2. Further token saving with an MCP tool to check which properties are necessary for the analysis and remove any others
-3. Some observability to track token usage and guide prompt optimisation
-4. Look at the performance to guide model, tool or prompt optimisation.
-5. Have a chat with the people using it and see what's easy/difficult/missing.
-6. Some more work on the UI, maybe even comparison charts.
+### Usability
+
+- Some context saving to resume chats
+- Have a chat with the people using it and see what's easy/difficult/missing.
+- Some more work on the UI, use the game images, maybe even comparison charts.
+
+### Cost/Reliablility/Performance optimisation
+
+- Further token saving with an MCP tool to check which properties are necessary for the analysis and remove any others
+- Using a pretty heavy model. Do we need all the grunt? Or we can use a smaller model?
+- Some observability to track token usage and guide prompt optimisation
+- Look at the performance to guide model, tool or prompt optimisation
+
+### Other items that would be one item per category
+
+- Some real auth!! (OAuth, JWT)
+- Implement service architecture in Cloudflare cleaner
 
 ## What Was Implemented (according to Claude)
 
