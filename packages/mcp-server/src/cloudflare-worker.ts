@@ -13,11 +13,12 @@ import { executeCalculationTool, executeCalculation } from './tools/execute-calc
 import { calculateRatingAverageTool, executeCalculateRatingAverage } from './tools/calculate-rating-average.js';
 import { setApiKey } from './tools/rawg.js';
 
-// CORS headers for AI Gateway
+// CORS headers for cross-origin requests
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, x-authentication-secret',
+  'Access-Control-Allow-Headers': 'Content-Type, x-authentication-secret, Authorization',
+  'Access-Control-Max-Age': '86400', // 24 hours
   'Content-Type': 'application/json',
 };
 
@@ -32,6 +33,7 @@ function isAuthenticated(request: Request, env: any): boolean {
   }
 
   const providedSecret = request.headers.get('x-authentication-secret');
+  console.log(`🔐 Provided secret length: ${providedSecret ? providedSecret.length : 0}, Expected secret length: ${expectedSecret.length}`);
   return providedSecret === expectedSecret;
 }
 
@@ -200,6 +202,11 @@ export default {
 
     const url = new URL(request.url);
 
+    // Log all incoming requests for debugging
+    console.log(`📥 ${request.method} ${url.pathname}`);
+    console.log(`🔗 Full URL: ${request.url}`);
+    console.log(`🌍 Origin: ${request.headers.get('origin') || 'none'}`);
+
     // Route to appropriate handler
     if (request.method === 'OPTIONS') {
       return handleOptions();
@@ -221,6 +228,20 @@ export default {
       return handleToolExecution(request, env);
     }
 
-    return handleRoot();
+    if (url.pathname === '/') {
+      return handleRoot();
+    }
+
+    // Log unmatched routes
+    console.warn(`⚠️ No route matched for: ${request.method} ${url.pathname}`);
+    return new Response(
+      JSON.stringify({
+        error: 'Not Found',
+        path: url.pathname,
+        method: request.method,
+        message: 'The requested endpoint does not exist'
+      }),
+      { status: 404, headers: CORS_HEADERS }
+    );
   },
 };

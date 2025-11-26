@@ -1,13 +1,16 @@
   main = ".open-next/worker.js"
   name = "rawg-chat-app"
   compatibility_date = "2025-03-25"
-  compatibility_flags = ["nodejs_compat"]
+  compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
   [observability]
   enabled = true
 
   [vars]
   MCP_SERVER_URL = "https://rawg-mcp-server.profpylons.workers.dev"
+  ANTHROPIC_API_KEY = "sk-ant-etc"
+  CLIENT_TOKEN = "token"
+  SHARED_SECRET = "secret"
 
   [assets]
   directory = ".open-next/assets"

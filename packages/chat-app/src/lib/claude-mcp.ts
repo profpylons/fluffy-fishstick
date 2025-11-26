@@ -30,14 +30,22 @@ async function fetchMCPTools() {
   }
 
   console.log('🔍 Fetching MCP tools from:', `${MCP_SERVER_URL}/v1/tools`);
+  console.log('🔑 SHARED_SECRET present:', !!process.env.SHARED_SECRET, 'length:', process.env.SHARED_SECRET?.length || 0);
   try {
     const response = await fetch(`${MCP_SERVER_URL}/v1/tools`, {
       headers: {
         'x-authentication-secret': process.env.SHARED_SECRET || '',
       },
     });
+
+    console.log('📡 Response status:', response.status, response.statusText);
+    console.log('📡 Response headers:', JSON.stringify([...response.headers.entries()]));
+
     if (!response.ok) {
+      // Try to get response body for more details
+      const errorBody = await response.text();
       console.error('❌ MCP server responded with:', response.status, response.statusText);
+      console.error('❌ Response body:', errorBody.substring(0, 500));
       throw new Error(`Failed to fetch tools: ${response.statusText}`);
     }
 
